@@ -13,6 +13,7 @@ en:
     Last result: No more results to show
     Add: Yes, add this
     Select a path: Please select a path for the movie or series
+    Select a profile: Please select a language for the movie or series
     Authorize: You first need to authorize this chat. What is the password?
     Wrong password: You entered the wrong password. Try again...
     Chatid added: "This chat is successfully added to the list of allowed chats. Now you can start using this bot. \nIf you entered a command, you need to execute it again."
@@ -34,6 +35,53 @@ en:
         Failed: I failed to add the movie
         Success: "The movie is added with success 🙂"
         Exist: The movie already exists 😉
+
+
+    Transmission:
+        NotEnabled: "The Transmission function is not activated."
+        Speed: "Which speed do you want Transmission to use?"
+        TSL: Temporary Speed Limits
+        Normal: Normal speed
+        ChangedToTSL: "Temporary Speed Limits is enabled."
+        ChangedToNormal: "Temporary Speed Limits is disabled."
+
+#French
+fr:
+    Start: Commencer
+    Stop: Arreter
+    Movie: Film
+    Serie: Serie
+    Start chatting: Commencer a parler avec Addarr sur Telegram. La premiere fois il faudra fournir votre mot de passe.
+    End: L'ajout de film est fini
+    Title: "Entrer le nom:"
+    What is this?: Est ce un film ou une serie ?
+    New: Faire une nouvelle recherche
+    Next result: Non, prochain resultat
+    Last result: Il n'ya plus de resultats a presenter.
+    Add: Oui, telecharge ce
+    Select a path: Choisis ou envoyer le fichier
+    Select a profile: En quel langue voudrais tu telecharger
+    Authorize: Tu dois d'abord t'autoriser, quel est le mot de passe ?
+    Wrong password: Mauvaise reponse, reesaye...
+    Chatid added: "Bienvenue sur CicuFlix ! \n Tu peux commencer a utiliser le bot."
+    NotAdmin: "Il faut etre admin pour executer cette commande."
+    No results: "Pas de resultat trouve :("
+    Chatid already allowed: "Ce chat est deja autorise."
+
+
+    serie:
+        Add: Oui, telecharge cette serie
+        This: Est ce que c'est cette serie que tu veux ?
+        Failed: Oops, je n'ai pas reussi, Essaye encore une fois.
+        Success: "La serie a ete ajoute avec succes 🙂"
+        Exist: La serie a deja ete ajoute auparavent 😉
+
+    film:
+        Add: Oui, telecharge ce film
+        This: Est ce que c'est ce film que tu veux ?
+        Failed: Oops, je n'ai pas reussi, Essaye encore une fois.
+        Success: "Le film a ete ajoute avec succes 🙂"
+        Exist: Le film a deja ete ajoute auparavent 😉
 
 
     Transmission:

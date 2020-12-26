@@ -58,11 +58,11 @@ def inLibrary(tvdbId):
     return next((True for show in parsed_json if show["tvdbId"] == tvdbId), False)
 
 
-def addToLibrary(tvdbId, path):
+def addToLibrary(tvdbId, path, profile):
     parameters = {"term": "tvdb:" + str(tvdbId)}
     req = requests.get(commons.generateApiQuery("sonarr", "series/lookup", parameters))
     parsed_json = json.loads(req.text)
-    data = json.dumps(buildData(parsed_json, path))
+    data = json.dumps(buildData(parsed_json, path, profile))
     add = requests.post(commons.generateApiQuery("sonarr", "series"), data=data)
     if add.status_code == 201:
         return True
@@ -70,9 +70,9 @@ def addToLibrary(tvdbId, path):
         return False
 
 
-def buildData(json, path):
+def buildData(json, path, profile):
     built_data = {
-        "qualityProfileId": config["qualityProfileId"],
+        "qualityProfileId": profile,
         "addOptions": {
             "ignoreEpisodesWithFiles": "true",
             "ignoreEpisodesWithoutFiles": "false",

@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-
+from flask import Flask, request
+import threading
 import logging
 import re
 import os
 import math
 
+import json
 import yaml
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import (
@@ -15,10 +17,11 @@ from telegram.ext import (
     Filters,
 )
 
-from definitions import CONFIG_PATH, LANG_PATH, CHATID_PATH, ADMIN_PATH
+from definitions import CONFIG_PATH, LANG_PATH, CHATID_PATH, ADMIN_PATH, REQUESTS_PATH
 import radarr as radarr
 import sonarr as sonarr
 import logger
+import requests
 
 __version__ = "0.3"
 
@@ -29,7 +32,7 @@ logLevel = logging.DEBUG if config.get("debugLogging", False) else logging.INFO
 logger = logger.getLogger("addarr", logLevel, config.get("logToConsole", False))
 logger.debug(f"Addarr v{__version__} starting up...")
 
-SERIE_MOVIE_AUTHENTICATED, READ_CHOICE, GIVE_OPTION, GIVE_PATHS, TSL_NORMAL = range(5)
+SERIE_MOVIE_AUTHENTICATED, READ_CHOICE, GIVE_OPTION, GIVE_PATHS, GIVE_PROFILES, TSL_NORMAL = range(6)
 
 updater = Updater(config["telegram"]["token"], use_context=True)
 dispatcher = updater.dispatcher
@@ -86,6 +89,12 @@ def main():
             GIVE_PATHS: [
                 MessageHandler(
                     Filters.regex(re.compile(r"^(Path: )(.*)$", re.IGNORECASE)),
+                    languageSerieMovie,
+                ),
+            ],
+            GIVE_PROFILES: [
+                MessageHandler(
+                    Filters.regex(re.compile(r"^(.*)$", re.IGNORECASE)),
                     addSerieMovie,
                 ),
             ],
@@ -442,7 +451,7 @@ def pathSerieMovie(update, context):
         # There is only 1 path, so use it!
         logger.debug("Only found 1 path, so proceeding with that one...")
         context.user_data["path"] = paths[0]["path"]
-        return addSerieMovie(update, context)
+        return languageSerieMovie(update, context)
     formattedPaths = [f"Path: {p['path']}" for p in paths]
 
     if len(paths) % 2 > 0:
@@ -459,13 +468,10 @@ def pathSerieMovie(update, context):
         text=transcript["Select a path"],
         reply_markup=markup,
     )
-    return GIVE_PATHS
+    return GIVE_PROFILES
 
 
-def addSerieMovie(update, context):
-    position = context.user_data["position"]
-    choice = context.user_data["choice"]
-    idnumber = context.user_data["output"][position]["id"]
+def languageSerieMovie(update, context):
 
     if not context.user_data.get("path"):
         # Path selection should be in the update message
@@ -481,15 +487,60 @@ def addSerieMovie(update, context):
             )
             return pathSerieMovie(update, context)
 
+    service = getService(context)
+    profiles = service.getProfiles()
+    context.user_data.update({"profiles": profiles})
+    formattedProfiles = [f"{profile['name']}" for profile in profiles]
+
+    if len(profiles) % 2 > 0:
+        oddItem = formattedProfiles.pop(-1)
+    reply_keyboard = [
+        [formattedProfiles[i], formattedProfiles[i + 1]]
+        for i in range(0, len(formattedProfiles), 2)
+    ]
+    if len(profiles) % 2 > 0:
+        reply_keyboard.append([oddItem])
+    markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
+    context.bot.send_message(
+        chat_id=update.effective_message.chat_id,
+        text=transcript["Select a profile"],
+        reply_markup=markup,
+    )
+    return GIVE_PROFILES
+
+
+def addSerieMovie(update, context):
+    position = context.user_data["position"]
+    choice = context.user_data["choice"]
+    idnumber = context.user_data["output"][position]["id"]
     path = context.user_data["path"]
+
+    if not context.user_data.get("profile"):
+        # Path selection should be in the update message
+        for profile in context.user_data.get("profiles"):
+            if profile["name"] == update.message.text:
+                context.user_data["profile"] = profile["id"]
+                break
+    if not context.user_data.get("profile"):
+        logger.debug(
+            f"Message text [{update.message.text}] doesn't match any of the profiles. Sending profiles for selection..."
+        )
+        return languageSerieMovie(update, context)
+
+    profile = context.user_data["profile"]
     service = getService(context)
 
     if not service.inLibrary(idnumber):
-        if service.addToLibrary(idnumber, path):
+        if service.addToLibrary(idnumber, path, profile):
             context.bot.send_message(
                 chat_id=update.effective_message.chat_id,
                 text=transcript[choice.lower()]["Success"],
             )
+            with open(REQUESTS_PATH, "r") as json_file:
+                requests_json = json.load(json_file)
+                requests_json[idnumber] = update.message.chat.id
+            with open(REQUESTS_PATH, "w") as json_file:
+                json.dump(requests_json, json_file)
             clearUserData(context)
             return ConversationHandler.END
         else:
@@ -593,6 +644,43 @@ def clearUserData(context):
     ]:
         context.user_data.pop(x)
 
+APP = Flask(__name__)
+
+def flask_start():
+    APP.run("0.0.0.0", port=6200)
+
+@APP.route('/', methods=['GET', 'POST'])
+def notify_chat():
+    data = request.json
+    print(data)
+    id = None
+    try:
+        id = str(data['movie']['tmdbId'])
+        title = data['movie']['title']
+        quality = data['release']['quality']
+        size = data['release']['size'] / 1024 / 1024 / 1024
+        event = data['eventType']
+    except KeyError:
+        print("key error")
+        try:
+            id = str(data['serie']['tvdbId'])
+        except KeyError:
+            return "Not OK"
+    if not id:
+        return "Not OK"
+    with open(REQUESTS_PATH, "r") as json_file:
+        print(f"{title} - {quality} - {size} is {event}")
+        request_json = json.load(json_file)
+        try:
+            chat_id = request_json[id]
+        except KeyError:
+            return "Not OK"
+        text = f"{title} - {quality} - {str(round(size, 2))}Gb is {event}"
+        data_to_send = {'chat_id': {chat_id}, 'text': text}
+        requests.post(f'https://api.telegram.org/bot{config["telegram"]["token"]}/sendMessage', data_to_send)
+    return "hi"
 
 if __name__ == "__main__":
+    flask_thread = threading.Thread(target=flask_start)
+    flask_thread.start()
     main()

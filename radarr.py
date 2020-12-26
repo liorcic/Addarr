@@ -56,13 +56,13 @@ def inLibrary(tmdbId):
     return next((True for movie in parsed_json if movie["tmdbId"] == tmdbId), False)
 
 
-def addToLibrary(tmdbId, path):
+def addToLibrary(tmdbId, path, profile):
     parameters = {"tmdbId": str(tmdbId)}
     req = requests.get(
         commons.generateApiQuery("radarr", "movie/lookup/tmdb", parameters)
     )
     parsed_json = json.loads(req.text)
-    data = json.dumps(buildData(parsed_json, path))
+    data = json.dumps(buildData(parsed_json, path, profile))
     add = requests.post(commons.generateApiQuery("radarr", "movie"), data=data)
     if add.status_code == 201:
         return True
@@ -70,9 +70,9 @@ def addToLibrary(tmdbId, path):
         return False
 
 
-def buildData(json, path):
+def buildData(json, path, profile):
     built_data = {
-        "qualityProfileId": config["qualityProfileId"],
+        "qualityProfileId": profile,
         "rootFolderPath": path,  # config["rootFolder"],
         "addOptions": {"searchForMovie": config["search"]},
     }
@@ -87,4 +87,12 @@ def getRootFolders():
     req = requests.get(commons.generateApiQuery("radarr", "Rootfolder", parameters))
     parsed_json = json.loads(req.text)
     logger.debug(f"Found Radarr paths: {parsed_json}")
+    return parsed_json
+
+
+def getProfiles():
+    parameters = {}
+    req = requests.get(commons.generateApiQuery("radarr", "qualityProfile", parameters))
+    parsed_json = json.loads(req.text)
+    logger.debug(f"Found Radarr Profiles: {parsed_json}")
     return parsed_json
