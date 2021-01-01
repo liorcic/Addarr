@@ -665,6 +665,7 @@ def pourcentage(update, context):
 
 
 def chooseSerie(update, context):
+    oddItem = None
     my_series = sonarr.allSeries()
     context.user_data.update({"my_series": my_series})
 
@@ -676,7 +677,7 @@ def chooseSerie(update, context):
         [formattedSeries[i], formattedSeries[i + 1]]
         for i in range(0, len(formattedSeries), 2)
     ]
-    if len(formattedSeries) % 2 > 0:
+    if oddItem:
         reply_keyboard.append([oddItem])
     markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
     context.bot.send_message(
