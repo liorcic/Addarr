@@ -122,6 +122,7 @@ def main():
             MessageHandler(Filters.regex("^(Stop|stop)$"), stop),
         ],
     )
+    pourcentage_handler_command = CommandHandler(config["entrypointPourcentage"], pourcentage)
 
     dispatcher.add_handler(auth_handler_command)
     dispatcher.add_handler(auth_handler_text)
@@ -129,6 +130,7 @@ def main():
     dispatcher.add_handler(allSeries_handler_text)
     dispatcher.add_handler(addMovieserie_handler)
     dispatcher.add_handler(changeTransmissionSpeed_handler)
+    dispatcher.add_handler(pourcentage_handler_command)
 
     logger.info(transcript["Start chatting"])
     updater.start_polling()
@@ -558,6 +560,7 @@ def addSerieMovie(update, context):
         clearUserData(context)
         return ConversationHandler.END
 
+
 def allSeries(update, context):
     if not checkId(update):
         if (
@@ -621,6 +624,22 @@ def allSeries(update, context):
                 text=subString,
             )
         return ConversationHandler.END
+
+
+def pourcentage(update, context):
+    if not checkId(update):
+        if (
+            authentication(update, context) == "added"
+        ):  # To also stop the beginning command
+            return ConversationHandler.END
+    else:
+        queue = radarr.get_queue_pourcentage()
+        for item in queue:
+            text = "{title} - {pourcent}%".format(title=item["title"], pourcent=item["poucentage"])
+            context.bot.send_message(chat_id=update.effective_message.chat_id,
+                                     text= text)
+        return ConversationHandler.END
+
 
 def getService(context):
     if context.user_data.get("choice") == transcript["Serie"]:

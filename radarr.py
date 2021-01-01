@@ -83,16 +83,30 @@ def buildData(json, path, profile):
 
 
 def getRootFolders():
-    parameters = {}
-    req = requests.get(commons.generateApiQuery("radarr", "Rootfolder", parameters))
+    req = requests.get(commons.generateApiQuery("radarr", "Rootfolder"))
     parsed_json = json.loads(req.text)
     logger.debug(f"Found Radarr paths: {parsed_json}")
     return parsed_json
 
 
 def getProfiles():
-    parameters = {}
-    req = requests.get(commons.generateApiQuery("radarr", "qualityProfile", parameters))
+    req = requests.get(commons.generateApiQuery("radarr", "qualityProfile"))
     parsed_json = json.loads(req.text)
     logger.debug(f"Found Radarr Profiles: {parsed_json}")
     return parsed_json
+
+
+def get_queue_pourcentage():
+    req = requests.get(commons.generateApiQuery("radarr", "queue"))
+    parsed_json = json.loads(req.text)
+    logger.debug(f"Found Radarr Queue")
+
+    movies_in_queue = []
+    for item in parsed_json["records"]:
+        movie_title = item["title"]
+        movie_status = item["status"]
+        movie_pourcentage = ((item["size"] - item["sizeleft"]) / item["size"]) * 100
+        movie_pourcentage = round(movie_pourcentage, 2)
+        if movie_status == "downloading":
+            movies_in_queue.append({"title": movie_title, "poucentage": movie_pourcentage})
+    return movies_in_queue
