@@ -32,7 +32,7 @@ logLevel = logging.DEBUG if config.get("debugLogging", False) else logging.INFO
 logger = logger.getLogger("addarr", logLevel, config.get("logToConsole", False))
 logger.debug(f"Addarr v{__version__} starting up...")
 
-SERIE_MOVIE_AUTHENTICATED, READ_CHOICE, GIVE_OPTION, GIVE_PATHS, GIVE_PROFILES, TSL_NORMAL = range(6)
+SERIE_MOVIE_AUTHENTICATED, READ_CHOICE, GIVE_OPTION, GIVE_PATHS, GIVE_PROFILES, TSL_NORMAL, CHOOSE_SERIE, CHOOSE_SEASON = range(8)
 
 updater = Updater(config["telegram"]["token"], use_context=True)
 dispatcher = updater.dispatcher
@@ -104,6 +104,21 @@ def main():
             MessageHandler(Filters.regex("^(Stop|stop)$"), stop),
         ],
     )
+
+    download_season_handler = ConversationHandler(
+        entry_points=[
+            CommandHandler(config["season"], chooseSerie)
+        ],
+        states={
+            CHOOSE_SERIE: [MessageHandler(Filters.text, chooseSeason)],
+            CHOOSE_SEASON: [MessageHandler(Filters.text, searchSeason)],
+        },
+        fallbacks=[
+            CommandHandler("stop", stop),
+            MessageHandler(Filters.regex("^(Stop|stop)$"), stop),
+        ],
+    )
+
     changeTransmissionSpeed_handler = ConversationHandler(
         entry_points=[
             CommandHandler(config["entrypointTransmission"], transmission),
@@ -131,6 +146,7 @@ def main():
     dispatcher.add_handler(addMovieserie_handler)
     dispatcher.add_handler(changeTransmissionSpeed_handler)
     dispatcher.add_handler(pourcentage_handler_command)
+    dispatcher.add_handler(download_season_handler)
 
     logger.info(transcript["Start chatting"])
     updater.start_polling()
@@ -405,6 +421,7 @@ def searchSerieMovie(update, context):
 
 
 def nextOption(update, context):
+    markup = None
     position = context.user_data["position"] + 1
     context.user_data["position"] = position
 
@@ -446,6 +463,7 @@ def nextOption(update, context):
 
 
 def pathSerieMovie(update, context):
+    oddItem = None
     service = getService(context)
     paths = service.getRootFolders()
     context.user_data.update({"paths": [p["path"] for p in paths]})
@@ -462,7 +480,7 @@ def pathSerieMovie(update, context):
         [formattedPaths[i], formattedPaths[i + 1]]
         for i in range(0, len(formattedPaths), 2)
     ]
-    if len(paths) % 2 > 0:
+    if oddItem:
         reply_keyboard.append([oddItem])
     markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
     context.bot.send_message(
@@ -470,11 +488,11 @@ def pathSerieMovie(update, context):
         text=transcript["Select a path"],
         reply_markup=markup,
     )
-    return GIVE_PROFILES
+    return GIVE_PATHS
 
 
 def languageSerieMovie(update, context):
-
+    oddItem = None
     if not context.user_data.get("path"):
         # Path selection should be in the update message
         if update.message.text.replace("Path: ", "").strip() in context.user_data.get(
@@ -500,7 +518,7 @@ def languageSerieMovie(update, context):
         [formattedProfiles[i], formattedProfiles[i + 1]]
         for i in range(0, len(formattedProfiles), 2)
     ]
-    if len(profiles) % 2 > 0:
+    if oddItem:
         reply_keyboard.append([oddItem])
     markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
     context.bot.send_message(
@@ -634,11 +652,93 @@ def pourcentage(update, context):
             return ConversationHandler.END
     else:
         queue = radarr.get_queue_pourcentage()
-        for item in queue:
-            text = "{title} - {pourcent}%".format(title=item["title"], pourcent=item["poucentage"])
+        for title in queue:
+            text = "{title} - {pourcent}%".format(title=title, pourcent=queue[title])
             context.bot.send_message(chat_id=update.effective_message.chat_id,
-                                     text= text)
+                                     text=text)
+        queue = sonarr.get_queue_pourcentage()
+        for title in queue:
+            text = "{title} - {pourcent}%".format(title=title, pourcent=queue[title])
+            context.bot.send_message(chat_id=update.effective_message.chat_id,
+                                     text=text)
         return ConversationHandler.END
+
+
+def chooseSerie(update, context):
+    my_series = sonarr.allSeries()
+    context.user_data.update({"my_series": my_series})
+
+    formattedSeries = [f"{serie['title']}" for serie in my_series]
+
+    if len(formattedSeries) % 2 > 0:
+        oddItem = formattedSeries.pop(-1)
+    reply_keyboard = [
+        [formattedSeries[i], formattedSeries[i + 1]]
+        for i in range(0, len(formattedSeries), 2)
+    ]
+    if len(formattedSeries) % 2 > 0:
+        reply_keyboard.append([oddItem])
+    markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
+    context.bot.send_message(
+        chat_id=update.effective_message.chat_id,
+        text=transcript["Select a serie"],
+        reply_markup=markup,
+    )
+    return CHOOSE_SERIE
+
+
+def chooseSeason(update, context):
+    serieTitle = update.message.text
+    my_series = context.user_data["my_series"]
+    id = None
+    seasonCount = None
+    oddItem = None
+    for serie in my_series:
+        if serie["title"] == serieTitle:
+            id = serie["id"]
+            seasonCount = serie["seasonCount"]
+            context.user_data.update({"serie_chosen_id": id})
+            break
+    if id and seasonCount:
+        seasons = []
+        for season in range(1, seasonCount + 1):
+            seasons.append(f"Saison {season}")
+
+        if len(seasons) % 2 > 0:
+            oddItem = seasons.pop(-1)
+        reply_keyboard = [
+            [seasons[i], seasons[i + 1]]
+            for i in range(0, len(seasons), 2)
+        ]
+        if oddItem:
+            reply_keyboard.append([oddItem])
+        markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
+        context.bot.send_message(
+            chat_id=update.effective_message.chat_id,
+            text=transcript["Select a season"],
+            reply_markup=markup,
+        )
+        return CHOOSE_SEASON
+    return ConversationHandler.END
+
+
+def searchSeason(update, context):
+    try:
+        season_chosen = update.message.text
+        serie_chosen_id = context.user_data["serie_chosen_id"]
+        seasonNumber = [int(s) for s in season_chosen.split() if s.isdigit()][0]
+        if sonarr.searchSeason(serie_chosen_id, seasonNumber):
+            context.bot.send_message(
+                chat_id=update.effective_message.chat_id,
+                text=transcript["serie"]["SeasonSuccess"],
+            )
+    except Exception:
+        context.bot.send_message(
+            chat_id=update.effective_message.chat_id,
+            text=transcript["serie"]["Failed"],
+        )
+    return ConversationHandler.END
+
 
 
 def getService(context):

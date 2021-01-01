@@ -61,6 +61,8 @@ fr:
     Add: Oui, telecharge ce
     Select a path: Choisis ou envoyer le fichier
     Select a profile: En quel langue voudrais tu telecharger
+    Select a serie: Pour quel serie ?
+    Select a season: Quel saison voudrais tu telecharger
     Authorize: Tu dois d'abord t'autoriser, quel est le mot de passe ?
     Wrong password: Mauvaise reponse, reesaye...
     Chatid added: "Bienvenue sur CicuFlix ! \n Tu peux commencer a utiliser le bot."
@@ -74,6 +76,7 @@ fr:
         This: Est ce que c'est cette serie que tu veux ?
         Failed: Oops, je n'ai pas reussi, Essaye encore une fois.
         Success: "La serie a ete ajoute avec succes 🙂"
+        SeasonSuccess: "La saison va bientot commencer a se telecharger 🙂"
         Exist: La serie a deja ete ajoute auparavent 😉
 
     film:

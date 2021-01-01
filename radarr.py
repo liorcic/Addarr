@@ -101,12 +101,12 @@ def get_queue_pourcentage():
     parsed_json = json.loads(req.text)
     logger.debug(f"Found Radarr Queue")
 
-    movies_in_queue = []
+    movies_in_queue = {}
     for item in parsed_json["records"]:
         movie_title = item["title"]
         movie_status = item["status"]
         movie_pourcentage = ((item["size"] - item["sizeleft"]) / item["size"]) * 100
         movie_pourcentage = round(movie_pourcentage, 2)
         if movie_status == "downloading":
-            movies_in_queue.append({"title": movie_title, "poucentage": movie_pourcentage})
+            movies_in_queue[movie_title] = movie_pourcentage
     return movies_in_queue

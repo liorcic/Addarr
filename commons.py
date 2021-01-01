@@ -36,9 +36,14 @@ def cleanUrl(text):
 def generateApiQuery(app, endpoint, parameters={}):
     try:
         apikey = config[app]["auth"]["apikey"]
-        url = (
-            generateServerAddr(app) + "api/v3/" + str(endpoint) + "?apikey=" + str(apikey)
-        )
+        if app == "sonarr":
+            url = (
+                generateServerAddr(app) + "api/" + str(endpoint) + "?apikey=" + str(apikey)
+            )
+        else:
+            url = (
+                    generateServerAddr(app) + "api/v3/" + str(endpoint) + "?apikey=" + str(apikey)
+            )
         # If parameters exist iterate through dict and add parameters to URL.
         if parameters:
             for key, value in parameters.items():

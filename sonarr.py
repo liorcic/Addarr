@@ -101,6 +101,11 @@ def getRootFolders():
     logger.debug(f"Found sonarr paths: {parsed_json}")
     return parsed_json
 
+def getProfiles():
+    req = requests.get(commons.generateApiQuery("sonarr", "profile"))
+    parsed_json = json.loads(req.text)
+    return parsed_json
+
 def allSeries():
     parameters = {}
     req = requests.get(commons.generateApiQuery("sonarr", "series", parameters))
@@ -111,7 +116,7 @@ def allSeries():
         for show in parsed_json:
             if all(
                 x in show
-                for x in ["title", "year", "monitored", "status"]
+                for x in ["title", "year", "monitored", "status", "id", "seasonCount"]
             ):
                 data.append(
                     {
@@ -119,8 +124,32 @@ def allSeries():
                         "year": show["year"],
                         "monitored": show["monitored"],
                         "status": show["status"],
+                        "id": show["id"],
+                        "seasonCount": show["seasonCount"]
                     }
                 )
         return data
     else:
         return False
+
+
+def searchSeason(seriesId, seasonNumber):
+    data = {"name": "SeasonSearch", "seriesId": seriesId, "seasonNumber": seasonNumber}
+    req = requests.post(commons.generateApiQuery("sonarr", "command"), json=data)
+    return req.status_code == 201
+
+
+def get_queue_pourcentage():
+    req = requests.get(commons.generateApiQuery("sonarr", "queue"))
+    parsed_json = json.loads(req.text)
+    logger.debug(f"Found sonarr Queue")
+
+    series_in_queue = {}
+    for item in parsed_json:
+        movie_title = item["title"]
+        movie_status = item["status"]
+        movie_pourcentage = ((item["size"] - item["sizeleft"]) / item["size"]) * 100
+        movie_pourcentage = round(movie_pourcentage, 2)
+        if movie_status == "Downloading":
+            series_in_queue[movie_title] = movie_pourcentage
+    return series_in_queue
